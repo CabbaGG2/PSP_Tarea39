@@ -24,8 +24,7 @@ public class Main {
                     System.out.println("[!] Ejecutando Auditoría de Hash...");
                     break;
                 case "2":
-                    // SecuritySuite.decodificadorCesar();
-                    System.out.println("[!] Ejecutando Decodificador Cesar...");
+                    SecuritySuite.decodificadorCesar();
                     break;
                 case "3":
                     // SecuritySuite.fuerzaBrutaMultihilos();

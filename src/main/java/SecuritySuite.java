@@ -1,12 +1,27 @@
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.HexFormat;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class SecuritySuite {
+
+    // --- AQUI USAMOS JACKSON ---
+    private static final ObjectMapper mapper = new ObjectMapper();
+    private static final HttpClient client = HttpClient.newHttpClient();
 
     public static void auditoriaHash() {
         // Implementación de la auditoría de hash
@@ -38,7 +53,7 @@ public class SecuritySuite {
         StringBuilder resultado = new StringBuilder();
         int desplazamiento;
 
-        for(int i = 1; i <= 27 ; i++) {
+        for(int i = 1; i <= 26 ; i++) {
             desplazamiento = i;
             String texto = "KRÑD OXPGR"; // Texto cifrado de ejemplo
             resultado.setLength(0); // Limpiar el StringBuilder para cada intento
@@ -53,7 +68,18 @@ public class SecuritySuite {
                     resultado.append(caracter);
                 }
             }
-            System.out.println("Desplazamiento " + desplazamiento + ": " + resultado.toString());
+
+            String primeraPalabra = resultado.toString().split(" ")[0];
+
+            boolean esPalabraReal = esPalabra(primeraPalabra); // Aquí se llamaría a la API para verificar
+
+            if(esPalabraReal) {
+                System.out.println("¡Palabra válida encontrada con desplazamiento " + desplazamiento + "! " + resultado.toString());
+            } else{
+                System.out.println("FALLO con desplazamiento " + desplazamiento + ": " + resultado.toString());
+            }
+
+            try { Thread.sleep(200); } catch (InterruptedException e) {}
         }
     }
 
@@ -68,5 +94,50 @@ public class SecuritySuite {
         md.update(password.getBytes(StandardCharsets.UTF_8));
         byte[] resumen = md.digest();
         return HexFormat.of().formatHex(resumen);
+    }
+
+    public static boolean esPalabra(String palabra) {
+        if (palabra == null || palabra.trim().isEmpty()) return false;
+
+        // filtramos si la palabra no tiene vocales (optimización local)
+        // así no tenemos que realizar una consulta en línea innecesaria
+        if (!palabra.toLowerCase().matches(".*[aeiouáéíóúü].*")) {
+            return false;
+        }
+
+        try {
+            Map<String, String> params = new HashMap<>();
+            params.put("text", palabra);
+            params.put("language", "es");
+            params.put("enabledOnly", "false");
+
+            String formBody = params.entrySet().stream()
+                    .map(entry -> URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8) + "=" +
+                            URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))
+                    .collect(Collectors.joining("&"));
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://api.languagetool.org/v2/check"))
+                    .header("Content-Type", "application/x-www-form-urlencoded")
+                    .header("Accept", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(formBody))
+                    .build();
+
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            // --- AQUI USAMOS JACKSON ---
+            // 1. Convertimos el String JSON a un árbol de nodos
+            JsonNode rootNode = mapper.readTree(response.body());
+
+            // 2. Obtenemos el array "matches"
+            JsonNode matches = rootNode.get("matches");
+
+            // 3. Si el array está vacío, significa que NO hay errores -> Palabra válida
+            return matches.isEmpty();
+
+        } catch (Exception e) {
+            System.out.println("Error verificando palabra: " + e.getMessage());
+            return false;
+        }
     }
 }
