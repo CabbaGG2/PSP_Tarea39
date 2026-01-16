@@ -1,3 +1,5 @@
+
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -12,9 +14,17 @@ import java.net.http.HttpResponse;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 public class SecuritySuite {
@@ -23,6 +33,10 @@ public class SecuritySuite {
     private static final ObjectMapper mapper = new ObjectMapper();
     private static final HttpClient client = HttpClient.newHttpClient();
 
+    /**
+     * Realiza una auditoría de hash contra un fichero.
+     * Lee un diccionario y compara el hash de cada palabra con un hash objetivo.
+     */
     public static void auditoriaHash() {
         // Implementación de la auditoría de hash
         System.out.println("Auditoría de Hash iniciada...");
@@ -49,6 +63,10 @@ public class SecuritySuite {
         }
     }
 
+    /**
+     * Descodifica un texto cifrado con el método César.
+     * Prueba todos los desplazamientos posibles y utiliza una API externa para verificar si las palabras resultantes son válidas.
+     */
     public static void decodificadorCesar() {
         StringBuilder resultado = new StringBuilder();
         int desplazamiento;
@@ -83,6 +101,55 @@ public class SecuritySuite {
         }
     }
 
+    private static final AtomicBoolean passwordEncontrada = new AtomicBoolean(false);
+
+    /**
+     * Realiza un ataque de fuerza bruta en paralelo para encontrar una contraseña.
+     * Utiliza un pool de hilos para dividir el trabajo por rangos de caracteres y acelerar el proceso de búsqueda.
+     */
+    public static void fuerzaBrutaMultihilos() {
+        passwordEncontrada.set(false);
+        System.out.println("Fuerza Bruta Multihilos iniciada...");
+        String hashObjetivo = "4a630b8e79a0cd2fbae3f58e751abb28d0f4918f76af188d8996f13fabe08af8";
+        String rutaFichero = "diccionario.txt";
+        char[][] rangos = {{'a', 'f'}, {'g', 'm'}, {'n', 'q'}, {'r', 'z'}};
+
+        ExecutorService executor = Executors.newFixedThreadPool(rangos.length);
+        List<Future<String>> futures = new ArrayList<>();
+
+        for (char[] rango : rangos) {
+            Callable<String> cracker = new PasswordCracker(rango[0], rango[1], hashObjetivo, rutaFichero, passwordEncontrada);
+            futures.add(executor.submit(cracker));
+        }
+
+        String resultado = null;
+        for (Future<String> future : futures) {
+            try {
+                String password = future.get();
+                if (password != null) {
+                    resultado = password;
+                    break;
+                }
+            } catch (InterruptedException | ExecutionException e) {
+                e.printStackTrace();
+            }
+        }
+
+        executor.shutdownNow();
+
+        if (resultado != null) {
+            System.out.println("¡CONTRASEÑA ENCONTRADA! La clave es: " + resultado);
+        } else {
+            System.out.println("Contraseña no encontrada en el fichero.");
+        }
+    }
+
+    /**
+     * Genera un hash SHA-256 para una contraseña dada.
+     *
+     * @param password La contraseña para la que se generará el hash.
+     * @return El hash SHA-256 en formato hexadecimal.
+     */
     public static String generarHash(String password) {
         MessageDigest md = null;
         try {
@@ -96,11 +163,17 @@ public class SecuritySuite {
         return HexFormat.of().formatHex(resumen);
     }
 
+    /**
+     * Verifica si una palabra es una palabra real en español utilizando una API externa.
+     *
+     * @param palabra La palabra a verificar.
+     * @return {@code true} si la palabra es válida, {@code false} en caso contrario.
+     */
     public static boolean esPalabra(String palabra) {
         if (palabra == null || palabra.trim().isEmpty()) return false;
 
         // filtramos si la palabra no tiene vocales (optimización local)
-        // así no tenemos que realizar una consulta en línea innecesaria
+        // así no tenemos que realizar una consulta online innecesaria
         if (!palabra.toLowerCase().matches(".*[aeiouáéíóúü].*")) {
             return false;
         }

@@ -1,6 +1,14 @@
+
+
 import java.util.Scanner;
 
 public class Main {
+    /**
+     * Punto de entrada principal de la aplicación.
+     * Muestra un menú de opciones para que el usuario elija qué herramienta de seguridad utilizar.
+     *
+     * @param args Argumentos de la línea de comandos (no se utilizan).
+     */
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
         String opcion = ""; // Inicializamos la variable vacía
@@ -27,8 +35,7 @@ public class Main {
                     SecuritySuite.decodificadorCesar();
                     break;
                 case "3":
-                    // SecuritySuite.fuerzaBrutaMultihilos();
-                    System.out.println("[!] Ejecutando Fuerza Bruta...");
+                    SecuritySuite.fuerzaBrutaMultihilos();
                     break;
                 case "salir":
                     System.out.println("Cerrando la aplicación. ¡Hasta luego!");
